@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>規則規程自動応答アプリ</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .chat-container {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            max-height: 90vh;
+        }
+        .chat-header {
+            background-color: #4f46e5;
+            color: white;
+            padding: 1rem;
+            text-align: center;
+            font-weight: bold;
+            font-size: 1.25rem;
+            border-top-left-radius: 12px;
+            border-top-right-radius: 12px;
+        }
+        .chat-messages {
+            flex-grow: 1;
+            padding: 1rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .message {
+            max-width: 80%;
+            padding: 0.75rem 1rem;
+            border-radius: 12px;
+            word-wrap: break-word;
+        }
+        .user-message {
+            align-self: flex-end;
+            background-color: #e0e7ff;
+            color: #3730a3;
+            border-bottom-right-radius: 2px;
+        }
+        .bot-message {
+            align-self: flex-start;
+            background-color: #f3f4f6;
+            color: #333;
+            border-bottom-left-radius: 2px;
+        }
+        .chat-input-area {
+            display: flex;
+            padding: 1rem;
+            border-top: 1px solid #e5e7eb;
+            gap: 0.5rem;
+        }
+        .chat-input {
+            flex-grow: 1;
+            padding: 0.75rem 1rem;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            outline: none;
+            font-size: 1rem;
+        }
+        .chat-input:focus {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
+        }
+        .send-button {
+            background-color: #4f46e5;
+            color: white;
+            padding: 0.75rem 1.25rem;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: background-color 0.2s ease-in-out;
+        }
+        .send-button:hover {
+            background-color: #4338ca;
+        }
+        .send-button:disabled {
+            background-color: #9ca3af;
+            cursor: not-allowed;
+        }
+        .loading-indicator {
+            text-align: center;
+            padding: 1rem;
+            font-style: italic;
+            color: #6b7280;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            規則規程 自動応答アプリ
+        </div>
+        <div class="chat-messages" id="chat-messages">
+            <div class="message bot-message">
+                法人の規則規程について、ご質問があればお答えします。
+            </div>
+        </div>
+        <div class="loading-indicator hidden" id="loading-indicator">
+            回答を生成中...
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="user-input" class="chat-input" placeholder="質問を入力してください...">
+            <button id="send-button" class="send-button">送信</button>
+        </div>
+    </div>
+
+    <script>
+        const chatMessages = document.getElementById('chat-messages');
+        const userInput = document.getElementById('user-input');
+        const sendButton = document.getElementById('send-button');
+        const loadingIndicator = document.getElementById('loading-indicator');
+
+        // Corporate rules and regulations, specifically trimmed to the "Bonus" section
+        // to address potential context window limitations of the AI model.
+        // In a more advanced application, a retrieval mechanism would dynamically
+        // select relevant sections based on the user's query.
+        const corporateRules = `
+        ## 給与規程 (Salary Regulations)
+
+        ### 第4章 賞与
+
+        第13条 法人は、期末賞与、勤勉賞与(以下「定期賞与」という)および特別賞与、施設新設賞与、職員
+        紹介賞与、特別功績賞与、新規入職賞与(以下「不定期賞与」という)を支給する。但し、短時
+        間勤務常勤職員については、勤勉賞与は支給しないものとし、育児介護短時間勤務職員について
+        は、勤勉賞与を支給するものとする。支給額・配分方法は別表3に定める。
+
+        2. 期末賞与は、上期期末賞与と下期期末賞与に分け6月1日、12月1日(以下これらの日を「基準
+        日」という。)に在職する職員で、かつ賞与支給日に在職する常勤職員及び嘱託職員に対し、上期
+        期末賞与は6月15日、下期期末賞与は12月15日 (支払日が休日の場合はその前日)に支給する。
+        ただし、法人の予算状況、経営成績等により、その支給額を増額又は減額することがある。また、
+        短時間勤務の常勤職員 (育児介護短時間勤務を適用している職員は含まない)は除く。
+
+        上期期末賞与は12月1日より翌年5月31日までを支給対象期間とする。
+
+        下期期末賞与は6月1日より11月30日までを支給対象期間とする。
+
+        3. 勤勉賞与は、法人の業績に対応して支給し、前項の上期勤勉賞与及び下期勤勉賞与に配分し、基準
+        日に在職する職員で、かつ賞与支給日に在職する職員に対し、上期勤勉賞与は6月15日、下期勤勉
+        賞与は12月15日 (支払日が休日の場合はその前日) に各正職員の勤務成績・責任度・技能業績に
+        応じて支給する。
+
+        4. 施設新設賞与は、保育園を新設した年に決算資金収支残高が予算以上に剰余が生じた場合に、3月
+        1日に在職し、かつ4月1日以降も在職する常勤職員及び嘱託職員に対し年度末に支給する。
+
+        5. 特別賞与は、理事会で決定し支給する。
+
+        6. 職員紹介賞与は、リファラル採用制度に基づき、優秀な人材の法人への就労を促した在職する職員
+        および入職した常勤職員に対し支給する。
+
+        7. 特別功績賞与は、著しい功績をあげた職員に対し支給する。
+
+        8. 新規入職賞与は、入職した常勤職員に対し、入職後最初の賞与支給日に支給する。ただし、支給対
+        象者は理事会にて決定する。
+
+        9. 賞与は非常勤職員にも支給することができる。
+
+        ### 別表２　[職員諸手当の支給要件及び支給金額について]
+        賞与
+        支給要件 イ　基準日に在職する常勤職員及び嘱託職員。
+        支給金額 イ　支給金額は次式により算定する。
+        　　支給基準額（別表３）×勤務期間率（別表３）×支給月数（別表３）
+        期
+        末
+        賞
+        与
+        イ　基準日に在職する常勤職員及び嘱託職員。但し、短時間勤務の常勤職員（※2）は除く。
+        　　※2　育児介護短時間勤務を適用している職員は含まない
+        支給金額
+        　　支給月数は、東京都人事委員会の東京都職員の期末手当の勧告を参考にする。
+        勤
+        勉
+        賞
+        与
+        支給要件
+        支給金額
+        イ　支給金額は次式により算定する。
+        　　支給基準額（別表３）×勤務期間率（別表３）
+        　　支給月数は、東京都人事委員会の東京都職員の勤勉手当の勧告を参考にする。
+        施
+        設
+        新
+        設
+        賞
+        与
+        支給要件 イ　３月１日に在職し、かつ４月１日以降も在職する常勤職員及び嘱託職員。
+        支給金額 イ　支給金額は、剰余金の範囲内で理事会にて決定し次式により算定する。
+        特
+        別
+        賞
+        与
+        支給要件 イ　理事会で決定する。
+        支給金額 イ　理事会で決定する。
+        職
+        員
+        紹
+        介
+        賞
+        与
+        支給要件 イ　リファラル採用制度実施要項に基づき対象となる職員。
+        支給金額 イ　在職職員100,000円（300,000円を限度とする）　新入職員50,000円
+        特
+        別
+        功
+        績
+        賞
+        与
+        支給要件 イ　著しい功績をあげた職員。
+        支給金額 イ　年度ごとに理事会にて決定した金額とする
+        新
+        規
+        入
+        職
+        賞
+        与
+        支給要件 イ　常勤職員として新規に入職し、理事会にて対象者として承認を得た職員。ただし、紹介会社経由の職員は除く。
+        支給金額 イ　50,000円
+
+        ### 別表３
+        １．賞与
+        　　（１）　賞与は定期賞与（期末賞与、勤勉賞与）及び不定期賞与（特別賞与、施設新設賞与、職員紹介賞与、
+        特別功績賞与、新規入職賞与）からなる。
+        　　（２）　賞与は上期定期賞与、下期定期賞与、施設新設賞与、特別賞与、職員紹介賞与、新規入職賞与とする。
+        ２．期末賞与の計算方法について
+        　　（１）　期末賞与は次式により算出する。
+        期末賞与＝支給基準額（２）×勤務期間率（３）×支給月数（４）
+        　　（２）　支給基準額とは給与計算期間に受ける基本給、地域手当 （基本給+扶養手当）×15％、
+        職務段階別加算額（5）及び管理職加算額（6）の合計額とする。
+        　　（３）　勤務期間率
+        　勤務期間の算定には、次の期間は算定の基礎に含めない。
+        　①　休職及び停職の期間
+        　②　給与を減額された期間
+        　③　負傷疾病により勤務しなかった期間
+         ④　産前産後休暇の期間
+        　⑤　育児休業及び介護休業の期間
+        ＜表 １＞
+        勤 務 期 間 勤務期間率
+        ３ヶ月未満 0.5
+        ２ヶ月以上 0.6
+        ３ヶ月以上 0.7
+        ４ヶ月以上 0.8
+        ５ヶ月以上 1.0
+        ６ヶ月以上 1.0
+        　基準日現在で、支給対象期間における勤務期間を算定し、＜表 １＞により勤務期間率を決定する。
+        　　（４）　支給月数
+        ＜表 ２＞
+        上期定期賞与 0.950
+        下期定期賞与 1.050
+        ※　（　）については、嘱託職員　但し、理事兼務の嘱託職員は常勤職員と同様の支給月数とする。
+        　　（５）　職務段階別加算額
+        ＜表 ３＞
+        部長 20％
+        園長等 15％
+        副園長等 10％
+        主任 6％
+        副主任 3％
+        　　（６）　管理職加算額
+        ＜表 ４＞
+        部長 20％
+        園長等 15％
+        その他職員 0.950
+        ３．勤勉賞与の計算方法について
+        　　（１）　勤勉賞与は次式により算出する。
+        勤勉賞与＝支給基準額（２）×勤務期間率（３）×支給月数（４）×成績率（５）
+        　　（２）　支給基準額とは給与計算期間に受ける基本給、地域手当（基本給×15％）、
+        職務段階月加算額及び管理職加算額の合計額とする。
+        　　（３）　勤務期間率
+        　勤務期間の算定には、次の期間は算定の基礎に含めない。
+        　①　休職及び停職の期間
+        　②　給与を減額された期間
+        　③　負傷疾病により勤務しなかった期間
+         ④　産前産後休暇の期間
+        　⑤　育児休業及び介護休業の期間
+        　基準日現在で、支給対象期間における勤務期間を算定し、＜表 １＞により勤務期間率を決定する。
+        　　（４）　支給月数
+        ＜表 5＞
+        上期定期賞与 1.475
+        下期定期賞与 1.375
+        ※　（　）については、嘱託職員　但し、理事兼務の嘱託職員は常勤職員と同様の支給月数とする。
+        　　（５）　職務段階別加算額
+        ＜表 ３＞
+        　　（６）　管理職加算額
+        ＜表 ４＞
+        　　（７）　成績率
+        人事考査の評価により、次の５段階で評価し、＜表６＞により成績率を決定する。
+        ＜表 ６＞
+        評　　　価 成　績　率
+        Ａ 1.2
+        Ｂ 1.1
+        Ｃ 1.0
+        Ｄ 0.9
+        Ｅ 0.8
+        　　（８）　懲戒処分等による勤勉賞与の減額
+        基準日以前６ヶ月の期間（以下「勤勉賞与の対象期間」という。）において、
+        ＜表 ７＞
+        私事欠勤等が2日のとき 100分の10
+        私事欠勤等が3日のとき 100分の5
+        私事欠勤等が4日のとき 1回につき100分の35
+        私事欠勤等が5及び6日のとき 1回につき100分の20
+        私事欠勤等が7日のとき 100分の40
+        私事欠勤等が8日以上のとき 100分の20
+        遅刻が2日のとき 100分の10
+        遅刻が4日のとき 1回につき100分の50
+        遅刻が5日のとき 1回につき100分の50
+        遅刻が6日以上のとき 100分の20
+        減給の処分を受けた場合 100分の100
+        けん責の処分を受けた場合 100分の80
+        出勤停止の処分を受けた場合 100分の60
+        就業規則第４９条に規定する懲戒処分を受けた職員及び私事欠勤等の事由がある場合の勤勉賞与については
+        ＜表７＞に掲げる割合を減じて得たものを乗じて得た割合とする。
+        ただし、人事考査を行わない場合は、理事会においてクラス担任を担えるか
+        否かの評価を行い、成績率を決定する。
+        　 クラス担任を任せられる 1.0
+        　 クラス担任を任せられない 0.8
+
+        ４．施設新設賞与の計算方法について
+        　　（１）　施設新設賞与は次式により算出する。
+        施設新設賞与＝支給金額（２）×勤務期間率（３）
+        　　（２）　支給金額とは、剰余金の範囲内で理事会にて決定した金額とする。
+        　　（３）　勤務期間率
+        　勤務期間の算定には、次の期間は算定の基礎に含めない。
+        　①　休職及び停職の期間
+        　②　給与を減額された期間
+        　③　負傷疾病により勤務しなかった期間
+        ＜表 ８＞
+        勤 務 期 間 勤務期間率
+        2ヶ月以上 0.4
+        5ヶ月以上 0.6
+        8ヶ月以上 0.8
+        11ヶ月以上 1.0
+        　３月１日現在で、支給対象期間における勤務期間を算定し、＜表 ８＞により勤務期間率を決定する。
+        ５．特別賞与の計算方法について
+        　　（１）　算出方法
+        　理事会で決定する。
+        　　（２）　勤務期間率
+        　理事会で決定する。
+        　　（３）　成績率
+        　理事会で決定する。
+        ６．職員紹介賞与の計算方法について
+        　　（１）　職員紹介賞与は定額とする。
+        　　（２）　支給金額は、在職職員100,000円（300,000円を限度とする）　新入職員50,000円とする。
+        ７．特別功績賞与の計算方法について
+        　　（１）　年度ごとに理事会にて決定した金額とする
+        ８．新規入職賞与の計算方法について
+        　　（１）　支給金額は、50,000円とする。
+        `;
+
+        // Function to add a message to the chat display
+        function addMessage(text, sender) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message', `${sender}-message`);
+            messageDiv.textContent = text;
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight; // Scroll to bottom
+        }
+
+        // Function to make API call with exponential backoff
+        async function callGeminiAPI(prompt, retries = 3, delay = 1000) {
+            // Netlify Functionのエンドポイントを呼び出す
+            const apiUrl = '/.netlify/functions/gemini-proxy'; 
+
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const payload = {
+                        prompt: prompt,
+                        corporateRules: corporateRules // 規則規程のテキストも関数に渡す
+                    };
+
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        let errorDetails = `Status: ${response.status} ${response.statusText}`;
+                        try {
+                            const errorData = await response.json();
+                            errorDetails += ` - Details: ${JSON.stringify(errorData)}`;
+                        } catch (parseError) {
+                            errorDetails += ` - Could not parse error response body.`;
+                        }
+                        throw new Error(`API error: ${errorDetails}`);
+                    }
+
+                    const result = await response.json();
+
+                    if (result.text) {
+                        return result.text;
+                    } else {
+                        throw new Error("Unexpected API response structure or no content from proxy.");
+                    }
+                } catch (error) {
+                    console.error(`Attempt ${i + 1} failed: ${error.message}`);
+                    if (i < retries - 1) {
+                        await new Promise(res => setTimeout(res, delay));
+                        delay *= 2; // Exponential backoff
+                    } else {
+                        throw error; // Re-throw if all retries fail
+                    }
+                }
+            }
+        }
+
+        // Event listener for the send button
+        sendButton.addEventListener('click', async () => {
+            const userText = userInput.value.trim();
+            if (userText === '') return;
+
+            addMessage(userText, 'user');
+            userInput.value = ''; // Clear input field
+            sendButton.disabled = true; // Disable button while processing
+            loadingIndicator.classList.remove('hidden'); // Show loading indicator
+
+            try {
+                const botResponse = await callGeminiAPI(userText);
+                addMessage(botResponse, 'bot');
+            } catch (error) {
+                console.error('Error generating response:', error);
+                addMessage('申し訳ありませんが、回答の生成中にエラーが発生しました。', 'bot');
+            } finally {
+                sendButton.disabled = false; // Re-enable button
+                loadingIndicator.classList.add('hidden'); // Hide loading indicator
+            }
+        });
+
+        // Allow sending message with Enter key
+        userInput.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter' && !sendButton.disabled) {
+                sendButton.click();
+            }
+        });
+    </script>
+</body>
+</html>

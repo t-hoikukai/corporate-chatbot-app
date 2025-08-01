@@ -1,0 +1,24 @@
+{
+  "name": "corporate-chatbot-app",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/t-hoikukai/corporate-chatbot-app.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/t-hoikukai/corporate-chatbot-app/issues"
+  },
+  "homepage": "https://github.com/t-hoikukai/corporate-chatbot-app#readme",
+  "dependencies": {
+    "node-fetch": "^3.3.2"
+  }
+}
